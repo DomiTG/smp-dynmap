@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmpDynmap</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a1a1a; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; }
+
+  header {
+    background: #2d2d2d;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 2px solid #4a9f4a;
+  }
+  header h1 { font-size: 1.4rem; color: #4a9f4a; }
+  header .sub { font-size: 0.85rem; color: #888; }
+
+  .layout { display: flex; height: calc(100vh - 55px); }
+
+  /* ── MAP AREA ─────────────────────────────── */
+  #map-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #111;
+    cursor: grab;
+  }
+  #map-container:active { cursor: grabbing; }
+  #map-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    image-rendering: pixelated;
+  }
+  #coords {
+    position: absolute;
+    bottom: 8px; left: 8px;
+    background: rgba(0,0,0,0.6);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: #ccc;
+    pointer-events: none;
+  }
+
+  /* ── SIDEBAR ──────────────────────────────── */
+  #sidebar {
+    width: 260px;
+    background: #242424;
+    border-left: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .tab-bar {
+    display: flex;
+    border-bottom: 1px solid #333;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 10px 4px;
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background 0.2s;
+  }
+  .tab-btn.active { color: #4a9f4a; border-bottom: 2px solid #4a9f4a; }
+  .tab-btn:hover { background: #2d2d2d; }
+
+  .tab-content { display: none; flex: 1; overflow-y: auto; padding: 8px; }
+  .tab-content.active { display: flex; flex-direction: column; gap: 8px; }
+
+  /* Players */
+  .player-entry {
+    background: #2d2d2d;
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 0.8rem;
+  }
+  .player-entry .name { font-weight: bold; color: #7acf7a; }
+  .player-entry .coords { color: #aaa; font-size: 0.75rem; margin-top: 2px; }
+  .player-entry .world { color: #888; font-size: 0.7rem; }
+
+  /* Chat */
+  #chat-log {
+    flex: 1;
+    overflow-y: auto;
+    font-size: 0.78rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .chat-msg { background: #2a2a2a; border-radius: 4px; padding: 4px 6px; }
+  .chat-msg .sender { color: #7acf7a; font-weight: bold; }
+  .chat-msg .text { color: #ccc; }
+  .chat-msg.webchat .sender { color: #cfcf7a; }
+  #chat-form { display: flex; gap: 4px; margin-top: 8px; }
+  #chat-input {
+    flex: 1;
+    background: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #eee;
+    padding: 6px;
+    font-size: 0.8rem;
+  }
+  #chat-send {
+    background: #4a9f4a;
+    border: none;
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+  #chat-name {
+    width: 100%;
+    background: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #eee;
+    padding: 6px;
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+  }
+
+  /* Worlds */
+  .world-btn {
+    background: #2d2d2d;
+    border: 1px solid #444;
+    border-radius: 6px;
+    color: #ccc;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    text-align: left;
+    transition: background 0.2s;
+  }
+  .world-btn.active { background: #3a5a3a; border-color: #4a9f4a; color: #7acf7a; }
+  .world-btn:hover { background: #333; }
+
+  /* Zoom controls */
+  #zoom-controls {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .zoom-btn {
+    width: 32px;
+    height: 32px;
+    background: rgba(30,30,30,0.85);
+    border: 1px solid #555;
+    color: #eee;
+    border-radius: 4px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .zoom-btn:hover { background: rgba(60,60,60,0.9); }
+  #zoom-label {
+    text-align: center;
+    font-size: 0.7rem;
+    color: #888;
+    background: rgba(30,30,30,0.75);
+    border-radius: 4px;
+    padding: 2px;
+  }
+
+  /* Status dot */
+  #status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #888;
+    display: inline-block;
+    margin-right: 4px;
+  }
+  #status-dot.online { background: #4a9f4a; }
+  #status-dot.offline { background: #cf4a4a; }
+
+  /* Markers on canvas */
+  .marker-pin {
+    position: absolute;
+    width: 10px; height: 10px;
+    background: #f0a030;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    z-index: 10;
+  }
+  .marker-pin:hover::after {
+    content: attr(data-label);
+    position: absolute;
+    left: 14px;
+    top: -4px;
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+  }
+
+  /* Player dots on canvas */
+  .player-dot {
+    position: absolute;
+    width: 10px; height: 10px;
+    background: #4a9f4a;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    z-index: 11;
+  }
+  .player-dot::after {
+    content: attr(data-name);
+    position: absolute;
+    left: 14px;
+    top: -4px;
+    background: rgba(0,0,0,0.75);
+    color: #7acf7a;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+  }
+
+  .no-data { color: #666; font-size: 0.8rem; text-align: center; padding: 16px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #1a1a1a; }
+  ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>⛏ SmpDynmap</h1>
+    <div class="sub"><span id="status-dot"></span><span id="status-text">Connecting…</span></div>
+  </div>
+  <div style="margin-left:auto; font-size:0.75rem; color:#666;" id="server-info"></div>
+</header>
+
+<div class="layout">
+  <!-- MAP -->
+  <div id="map-container">
+    <canvas id="map-canvas"></canvas>
+    <div id="coords">x: – z: –</div>
+    <div id="zoom-controls">
+      <button class="zoom-btn" id="zoom-in">+</button>
+      <div id="zoom-label">z0</div>
+      <button class="zoom-btn" id="zoom-out">−</button>
+    </div>
+    <div id="player-layer"></div>
+    <div id="marker-layer"></div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="players">Players</button>
+      <button class="tab-btn" data-tab="chat">Chat</button>
+      <button class="tab-btn" data-tab="worlds">Worlds</button>
+      <button class="tab-btn" data-tab="markers">Markers</button>
+    </div>
+
+    <!-- Players tab -->
+    <div class="tab-content active" id="tab-players">
+      <div id="player-list"><div class="no-data">No players online.</div></div>
+    </div>
+
+    <!-- Chat tab -->
+    <div class="tab-content" id="tab-chat">
+      <div id="chat-log"></div>
+      <div>
+        <input id="chat-name" type="text" placeholder="Your name (optional)" maxlength="32">
+        <div id="chat-form">
+          <input id="chat-input" type="text" placeholder="Say something…" maxlength="256">
+          <button id="chat-send">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Worlds tab -->
+    <div class="tab-content" id="tab-worlds">
+      <div id="world-list"><div class="no-data">Loading…</div></div>
+    </div>
+
+    <!-- Markers tab -->
+    <div class="tab-content" id="tab-markers">
+      <div id="marker-list"><div class="no-data">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  SmpDynmap – Web Viewer
+//  Communicates with the built-in HTTP server endpoints:
+//    /up/configuration          – server/world config
+//    /up/world/{world}/{ts}     – live player+chat updates
+//    /up/markers/{world}        – marker data
+//    /tiles/{world}/{map}/{x}_{z}.png  – rendered tiles
+// ═══════════════════════════════════════════════════════════════
+
+const BASE = '';   // same origin
+const TILE_SIZE = 128;   // pixels per tile
+
+// ── State ────────────────────────────────────────────────────────────────
+let cfg = null;
+let currentWorld = null;
+let currentMap   = 'flat';
+let zoom = 0;           // 0 = base (1px/block), 1 = 2x zoom-out, etc.
+let panX = 0;           // pan offset in pixels
+let panY = 0;
+let lastUpdateTs = 0;
+let updateInterval = null;
+let tileCache = {};
+let serverOnline = false;
+
+// ── Canvas setup ─────────────────────────────────────────────────────────
+const container  = document.getElementById('map-container');
+const canvas     = document.getElementById('map-canvas');
+const ctx        = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+function resizeCanvas() {
+  canvas.width  = container.clientWidth;
+  canvas.height = container.clientHeight;
+  drawMap();
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// ── Pan / drag ────────────────────────────────────────────────────────────
+let dragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
+container.addEventListener('mousedown', e => {
+  dragging = true;
+  dragStartX = e.clientX; dragStartY = e.clientY;
+  panStartX = panX; panStartY = panY;
+});
+window.addEventListener('mouseup', () => { dragging = false; });
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  panX = panStartX + (e.clientX - dragStartX);
+  panY = panStartY + (e.clientY - dragStartY);
+  drawMap();
+  updateOverlays();
+});
+container.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (e.deltaY < 0) zoomIn();
+  else zoomOut();
+}, { passive: false });
+
+// Coordinate display
+container.addEventListener('mousemove', e => {
+  const rect = container.getBoundingClientRect();
+  const px = e.clientX - rect.left - panX;
+  const py = e.clientY - rect.top  - panY;
+  const blockX = Math.floor(px * Math.pow(2, zoom));
+  const blockZ = Math.floor(py * Math.pow(2, zoom));
+  document.getElementById('coords').textContent = `x: ${blockX}  z: ${blockZ}`;
+});
+
+// ── Zoom controls ─────────────────────────────────────────────────────────
+const maxZoom = () => cfg ? (cfg.mapzoomout || 3) : 3;
+document.getElementById('zoom-in').addEventListener('click', zoomIn);
+document.getElementById('zoom-out').addEventListener('click', zoomOut);
+
+function zoomIn() {
+  if (zoom <= 0) return;
+  zoom--;
+  tileCache = {};
+  document.getElementById('zoom-label').textContent = 'z' + zoom;
+  drawMap();
+}
+function zoomOut() {
+  if (zoom >= maxZoom()) return;
+  zoom++;
+  tileCache = {};
+  document.getElementById('zoom-label').textContent = 'z' + zoom;
+  drawMap();
+}
+
+// ── Tile URL builder ──────────────────────────────────────────────────────
+function tileUrl(world, map, z, tx, tz) {
+  const zPrefix = z === 0 ? '' : '/' + 'z'.repeat(z);
+  return `${BASE}/tiles/${world}/${map}${zPrefix}/${tx}_${tz}.png`;
+}
+
+// ── Draw map tiles ────────────────────────────────────────────────────────
+function drawMap() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!currentWorld) return;
+
+  // At zoom level z, each tile covers 2^z * TILE_SIZE blocks
+  // and is displayed at TILE_SIZE pixels on screen
+  const blocksPerTile = Math.pow(2, zoom) * TILE_SIZE;
+  const displaySize = TILE_SIZE;  // each tile is always TILE_SIZE px on screen
+
+  // Visible tile range
+  const firstTileX = Math.floor((-panX) / displaySize) - 1;
+  const firstTileZ = Math.floor((-panY) / displaySize) - 1;
+  const lastTileX  = firstTileX + Math.ceil(canvas.width  / displaySize) + 2;
+  const lastTileZ  = firstTileZ + Math.ceil(canvas.height / displaySize) + 2;
+
+  for (let tx = firstTileX; tx <= lastTileX; tx++) {
+    for (let tz = firstTileZ; tz <= lastTileZ; tz++) {
+      const key = `${currentWorld}:${currentMap}:${zoom}:${tx}:${tz}`;
+      const screenX = panX + tx * displaySize;
+      const screenY = panY + tz * displaySize;
+
+      if (tileCache[key]) {
+        ctx.drawImage(tileCache[key], screenX, screenY, displaySize, displaySize);
+      } else {
+        // Draw placeholder
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(screenX, screenY, displaySize, displaySize);
+        ctx.strokeStyle = '#2a2a2a';
+        ctx.strokeRect(screenX, screenY, displaySize, displaySize);
+
+        // Load tile async
+        const img = new Image();
+        img.onload  = () => { tileCache[key] = img; drawMap(); };
+        img.onerror = () => { tileCache[key] = 'missing'; };
+        img.src = tileUrl(currentWorld, currentMap, zoom, tx, tz);
+        tileCache[key] = 'loading';
+      }
+    }
+  }
+}
+
+// Convert world coords to screen position
+function worldToScreen(wx, wz) {
+  const blocksPerTile = Math.pow(2, zoom) * TILE_SIZE;
+  const displaySize = TILE_SIZE;
+  return {
+    x: panX + (wx / Math.pow(2, zoom)),
+    y: panY + (wz / Math.pow(2, zoom))
+  };
+}
+
+// ── Player / marker overlays ──────────────────────────────────────────────
+let players = [];
+let markerSets = [];
+
+function updateOverlays() {
+  const playerLayer = document.getElementById('player-layer');
+  const markerLayer = document.getElementById('marker-layer');
+  playerLayer.innerHTML = '';
+  markerLayer.innerHTML = '';
+
+  for (const p of players) {
+    if (p.world !== currentWorld) continue;
+    const pos = worldToScreen(p.x, p.z);
+    const dot = document.createElement('div');
+    dot.className = 'player-dot';
+    dot.style.left = pos.x + 'px';
+    dot.style.top  = pos.y + 'px';
+    dot.setAttribute('data-name', p.account);
+    playerLayer.appendChild(dot);
+  }
+
+  for (const set of markerSets) {
+    for (const m of (set.markers || [])) {
+      if (m.world !== currentWorld) continue;
+      const pos = worldToScreen(m.x, m.z);
+      const pin = document.createElement('div');
+      pin.className = 'marker-pin';
+      pin.style.left = pos.x + 'px';
+      pin.style.top  = pos.y + 'px';
+      pin.setAttribute('data-label', m.label);
+      markerLayer.appendChild(pin);
+    }
+  }
+}
+
+// ── Configuration ─────────────────────────────────────────────────────────
+async function loadConfig() {
+  try {
+    const r = await fetch(`${BASE}/up/configuration`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    cfg = await r.json();
+    setOnline(true);
+
+    // Populate world list
+    const wList = document.getElementById('world-list');
+    wList.innerHTML = '';
+    for (const world of (cfg.worlds || [])) {
+      const btn = document.createElement('button');
+      btn.className = 'world-btn' + (world.name === currentWorld ? ' active' : '');
+      btn.textContent = world.title || world.name;
+      btn.addEventListener('click', () => selectWorld(world.name));
+      wList.appendChild(btn);
+    }
+
+    // Select default world if none selected
+    if (!currentWorld && cfg.defaultworld) {
+      selectWorld(cfg.defaultworld);
+    }
+    // Update server info
+    document.getElementById('server-info').textContent =
+      `v${cfg.dynmapversion || '–'}  |  ${cfg.playercount || 0} player(s) online`;
+  } catch (e) {
+    setOnline(false);
+    console.warn('Config fetch failed:', e);
+  }
+}
+
+function selectWorld(worldName) {
+  currentWorld = worldName;
+  tileCache = {};
+  lastUpdateTs = 0;
+  document.querySelectorAll('.world-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === worldName
+        || b.textContent === (cfg && cfg.worlds && cfg.worlds.find(w => w.name === worldName)?.title));
+  });
+  drawMap();
+  loadMarkers();
+}
+
+// ── Markers ───────────────────────────────────────────────────────────────
+async function loadMarkers() {
+  if (!currentWorld) return;
+  try {
+    const r = await fetch(`${BASE}/up/markers/${currentWorld}`);
+    if (!r.ok) return;
+    const data = await r.json();
+    markerSets = data.sets || [];
+    renderMarkerSidebar();
+    updateOverlays();
+  } catch(e) { /* silent */ }
+}
+
+function renderMarkerSidebar() {
+  const list = document.getElementById('marker-list');
+  list.innerHTML = '';
+  let count = 0;
+  for (const set of markerSets) {
+    for (const m of (set.markers || [])) {
+      if (m.world !== currentWorld) continue;
+      const el = document.createElement('div');
+      el.className = 'player-entry';
+      el.style.cursor = 'pointer';
+      el.innerHTML = `<div class="name">📍 ${m.label}</div>
+        <div class="coords">x:${Math.round(m.x)} y:${Math.round(m.y)} z:${Math.round(m.z)}</div>`;
+      el.addEventListener('click', () => {
+        panX = canvas.width  / 2 - m.x / Math.pow(2, zoom);
+        panY = canvas.height / 2 - m.z / Math.pow(2, zoom);
+        drawMap(); updateOverlays();
+      });
+      list.appendChild(el);
+      count++;
+    }
+  }
+  if (count === 0) list.innerHTML = '<div class="no-data">No markers in this world.</div>';
+}
+
+// ── Update polling ────────────────────────────────────────────────────────
+async function fetchUpdate() {
+  if (!currentWorld) return;
+  try {
+    const r = await fetch(`${BASE}/up/world/${currentWorld}/${lastUpdateTs}`);
+    if (!r.ok) { setOnline(false); return; }
+    const data = await r.json();
+    setOnline(true);
+    lastUpdateTs = data.timestamp || Date.now();
+
+    players = data.players || [];
+    renderPlayerSidebar();
+    updateOverlays();
+
+    // Chat
+    for (const u of (data.updates || [])) {
+      if (u.type === 'chat') addChatMessage(u.playerName, u.message, u.channel === 'web');
+      if (u.type === 'tilechange') {
+        // Invalidate affected tile across all cached zoom levels
+        const maxZ = cfg ? (cfg.mapzoomout || 3) : 3;
+        for (let z = 0; z <= maxZ; z++) {
+          const key = `${currentWorld}:${currentMap}:${z}:${u.x}:${u.z}`;
+          delete tileCache[key];
+        }
+        drawMap();
+      }
+    }
+
+    document.getElementById('server-info').textContent =
+      `v${cfg?.dynmapversion || '–'}  |  ${data.currentcount || 0} player(s)  |  time ${data.timeofday || 0}`;
+  } catch(e) {
+    setOnline(false);
+  }
+}
+
+function renderPlayerSidebar() {
+  const list = document.getElementById('player-list');
+  const worldPlayers = players.filter(p => p.world === currentWorld);
+  if (worldPlayers.length === 0) {
+    list.innerHTML = '<div class="no-data">No players in this world.</div>';
+    return;
+  }
+  list.innerHTML = worldPlayers.map(p =>
+    `<div class="player-entry">
+       <div class="name">👤 ${p.account}</div>
+       <div class="coords">x:${Math.round(p.x)} y:${Math.round(p.y)} z:${Math.round(p.z)}</div>
+       <div class="world">❤ ${(p.health||0).toFixed(1)}</div>
+     </div>`
+  ).join('');
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────
+const MAX_CHAT = 80;
+const chatLog = document.getElementById('chat-log');
+
+function addChatMessage(sender, text, isWeb = false) {
+  const div = document.createElement('div');
+  div.className = 'chat-msg' + (isWeb ? ' webchat' : '');
+  div.innerHTML = `<span class="sender">${escHtml(sender)}</span>: <span class="text">${escHtml(text)}</span>`;
+  chatLog.appendChild(div);
+  while (chatLog.children.length > MAX_CHAT) chatLog.removeChild(chatLog.firstChild);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+document.getElementById('chat-send').addEventListener('click', sendChat);
+document.getElementById('chat-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') sendChat();
+});
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const nameInput = document.getElementById('chat-name');
+  const msg = input.value.trim();
+  if (!msg) return;
+  const name = nameInput.value.trim() || 'WebUser';
+  input.value = '';
+  try {
+    await fetch(`${BASE}/up/sendchat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, message: msg })
+    });
+    addChatMessage('[Web] ' + name, msg, true);
+  } catch(e) { console.warn('Send chat failed:', e); }
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Status ────────────────────────────────────────────────────────────────
+function setOnline(online) {
+  serverOnline = online;
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  dot.classList.toggle('online', online);
+  dot.classList.toggle('offline', !online);
+  txt.textContent = online ? 'Online' : 'Offline';
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+loadConfig();
+setInterval(loadConfig, 30000);
+setInterval(fetchUpdate, 2000);
+setInterval(loadMarkers, 15000);
+</script>
+</body>
+</html>

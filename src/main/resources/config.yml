@@ -1,0 +1,93 @@
+# SmpDynmap Configuration
+# Minecraft 1.21.1 custom Dynmap implementation
+
+http:
+  enabled: true
+  port: 8123
+  address: "0.0.0.0"
+  maxconnections: 25
+  # Directory (relative to plugin folder) to serve static web files from
+  webroot: "web"
+  # Allow cross-origin requests (useful for external frontends)
+  allowcors: true
+
+worlds:
+  - name: world
+    enabled: true
+    title: "World"
+    maps:
+      - type: flat
+        name: flat
+        title: "Surface"
+        background: "#000000"
+        night-and-day: false
+        prefix: "flat"
+        mapzoomin: 2
+        mapzoomout: 3
+  - name: world_nether
+    enabled: true
+    title: "Nether"
+    maps:
+      - type: flat
+        name: flat
+        title: "Surface"
+        background: "#3a0000"
+        prefix: "flat"
+        mapzoomin: 2
+        mapzoomout: 3
+  - name: world_the_end
+    enabled: true
+    title: "The End"
+    maps:
+      - type: flat
+        name: flat
+        title: "Surface"
+        background: "#0d0d1a"
+        prefix: "flat"
+        mapzoomin: 2
+        mapzoomout: 3
+
+rendering:
+  # Number of background render threads (keep low to avoid TPS impact)
+  thread-count: 2
+  # Tile size in pixels (must be a power of 2, minimum 64)
+  tile-size: 128
+  # Number of zoom levels (includes base zoom 0)
+  zoom-levels: 4
+  # Seconds to wait for a chunk to load before skipping it
+  chunk-load-timeout: 5
+  # Maximum render queue depth
+  max-tiles-in-queue: 500
+  # Apply slope-based shading to the rendered tiles
+  slope-shading: true
+
+updates:
+  # How often (seconds) to push player/chat data to the update files
+  period: 2
+
+chat:
+  enable: true
+  # Show a send button in the web viewer
+  sendbutton: true
+  # Maximum number of chat messages to keep in history
+  maxhistory: 100
+  # Require login for webchat (not yet implemented)
+  requirelogin: false
+
+players:
+  # Hide all players from map by default
+  hidebydefault: false
+  # Show player skin faces in the web viewer
+  showplayerfaces: true
+  showplayerhealth: true
+  showplayerarmor: true
+  # Hide players that are in spectator or in nether (set false to always show)
+  hideinspectator: true
+
+markers:
+  showlabels: true
+  # File (relative to plugin folder) where markers are persisted
+  storagefile: "markers.json"
+
+logging:
+  verboselogging: false
