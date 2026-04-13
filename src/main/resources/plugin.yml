@@ -1,0 +1,37 @@
+name: SmpDynmap
+version: ${project.version}
+main: com.domitg.smpdynmap.SmpDynmap
+api-version: '1.21'
+description: Custom Dynmap implementation for SMP servers
+authors:
+  - DomiTG
+website: https://github.com/DomiTG/smp-dynmap
+
+commands:
+  dynmap:
+    description: Main SmpDynmap administration command
+    usage: /dynmap <render|pause|resume|reload|show|hide|stats|fullrender|cancelrender>
+    permission: smpdynmap.admin
+    aliases: [sdynmap]
+  dmarker:
+    description: Marker management command
+    usage: /dmarker <add|delete|list|set|addset|deleteset|listsets>
+    permission: smpdynmap.marker
+    aliases: [dynmarker]
+
+permissions:
+  smpdynmap.admin:
+    description: Full SmpDynmap administration access
+    default: op
+  smpdynmap.marker:
+    description: Manage dynmap markers
+    default: op
+  smpdynmap.webchat:
+    description: Allows chatting from the web interface
+    default: true
+  smpdynmap.hide:
+    description: Player can hide themselves from the map
+    default: true
+  smpdynmap.show:
+    description: Player can show themselves on the map
+    default: true
